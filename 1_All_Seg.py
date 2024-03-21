@@ -13,7 +13,7 @@ N = 275 # Total number of images
 # %% Functions
 os.chdir(wk_dir)
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
-def show_mask(mask, ax, random_color=False):
+def show_mask(mask, score, ax, random_color=False):
     if random_color:
         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
     else:
@@ -21,6 +21,9 @@ def show_mask(mask, ax, random_color=False):
     h, w = mask.shape[-2:]
     mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
     ax.imshow(mask_image)
+    iou = score[0]
+    ax.set_title(f"{iou:.3f}")
+
     
 def show_points(coords, labels, ax, marker_size=20):
     pos_points = coords[labels==1]
@@ -69,6 +72,8 @@ def show_single_mask(mask, ax):
     color_mask = [0.06952425, 0.46226365, 0.44556518, 0.75]
     img[m] = color_mask
     ax.imshow(img)
+    iou = mask['predicted_iou']
+    ax.set_title(f"{iou:.3f}")
 
 def show_top_mask(masks, ax):
     mask1 = sorted_mask[0]
@@ -117,7 +122,8 @@ plt.show()
 input_dir = "Data/CropSolar/"
 output_dir = "Outputs/SolarTop4/"
 
-for number in range(155, N + 1):
+for number in range(1, N + 1):
+    print(number)
     inputpath = wk_dir + input_dir + "Frame_" + f"{number:03}" + ".png"
     image = cv2.imread(inputpath)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -174,6 +180,7 @@ plt.show()
 # Number of points: 20
 #output_dir = "Outputs/BoundingBox/"
 number = 1
+input_dir = "Data/CropSolar/"
 inputpath = wk_dir + input_dir + "Frame_" + f"{number:03}" + ".png"
 image = cv2.imread(inputpath)
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -196,13 +203,13 @@ masks, quality, _ = predictor.predict_torch(
 masks = masks.reshape(masks.shape[0], masks.shape[-2], masks.shape[-1]).cpu().numpy()
 quality = quality.cpu().numpy()
 # Get top 4 masks
-
 idx = heapq.nlargest(4, range(len(quality)), quality.take)
 top_mask = masks[idx]
+top_score = quality[idx]
 plt.figure(figsize=(10, 10))
 plt.imshow(image)
-for mask in top_mask:
-    show_mask(mask, plt.gca(), random_color=False)
+for mask, score in zip(top_mask, top_score):
+    show_mask(mask, score, plt.gca(), random_color=False)
 plt.axis('off')
 plt.show()
 # %% Itereate over all images
@@ -214,6 +221,7 @@ x = [itm[0] for itm in raw_points]
 y = [itm[1] for itm in raw_points]
 B = len(raw_points)
 n = 1
+N = 275
 points = torch.tensor(raw_points.reshape(B, n, 2), device=predictor.device)
 labels = np.array([1] * len(points))
 labels = torch.tensor(labels.reshape(B, n), device=predictor.device)
@@ -235,15 +243,18 @@ for number in range(1, N+1):
     m2 = masks[idx[1]]
     m3 = masks[idx[2]]
     m4 = masks[idx[3]]
-    top_mask = masks[idx]
+    s1 = quality[idx[0]]
+    s2 = quality[idx[1]]
+    s3 = quality[idx[2]]
+    s4 = quality[idx[3]]
     fig, ax = plt.subplots(2, 2)
     for aaa in ax.flat:
         aaa.imshow(image)
         aaa.scatter(y, x, color = "red", marker = ".", s = 10)
-    show_mask(m1, ax[0, 0], random_color=False)
-    show_mask(m2, ax[0, 1], random_color=False)
-    show_mask(m3, ax[1, 0], random_color=False)
-    show_mask(m4, ax[1, 1], random_color=False)
+    show_mask(m1, s1, ax[0, 0], random_color=False)
+    show_mask(m2, s2, ax[0, 1], random_color=False)
+    show_mask(m3, s3, ax[1, 0], random_color=False)
+    show_mask(m4, s4, ax[1, 1], random_color=False)
     fig.suptitle(f"Solar {number} top 4 segs", fontsize=16)
     plt.tight_layout()
     fig.subplots_adjust(top=0.93)
@@ -258,6 +269,8 @@ for number in range(1, N+1):
 ################################################
 ################################################
 ################################################
+    
+# Old code below
 
 # %% Load image 1 - 9
 image_number = range(1,10)
