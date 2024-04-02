@@ -48,6 +48,17 @@ def calculate_iou(mask1, mask2):
     iou = intersection / union
     return iou
 
+# Calculate the Intersection over min(A,B) between two masks.
+# Mask: 2-D mask of either true or false
+def calculate_max_score(mask1, mask2):
+    mask1 = np.where(mask1, 1, 0)
+    mask2 = np.where(mask2, 1, 0)
+    intersection = np.logical_and(mask1, mask2)
+    inter1 = np.sum(np.logical_and(intersection, mask1)) / np.sum(mask1)
+    inter2 = np.sum(np.logical_and(intersection, mask2)) / np.sum(mask2)
+    score = max(inter1, inter2)
+    return score
+
 def show_anns(anns):
     if len(anns) == 0:
         return
@@ -86,6 +97,12 @@ def show_top_mask(masks, ax):
 
     mask4 = sorted_mask[3]
     show_single_mask(mask4, ax[1, 1])
+    
+    mask5 = sorted_mask[4]
+    show_single_mask(mask5, ax[2, 0])
+
+    mask6 = sorted_mask[5]
+    show_single_mask(mask6, ax[2, 1])
 #%% Import SAM
 sam_checkpoint = "sam_vit_h_4b8939.pth"
 model_type = "vit_h"
@@ -98,34 +115,40 @@ mask_generator = SamAutomaticMaskGenerator(model = sam)
 
 # %% Get all segmentations
 input_dir = "Data/CropSolar/"
-number = 1
+number = 101
 inputpath = wk_dir + input_dir + "Frame_" + f"{number:03}" + ".png"
 image = cv2.imread(inputpath)
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 masks = mask_generator.generate(image)
+# Sort by area first
+masks = sorted(masks, key=lambda d: d['area'], reverse = True)
 # Calculate all IoU scores
 final_masks = []
-threshold = 0.9
+threshold = 0.6
 for i in range(len(masks)):
     cur = masks[i]
     add = True
     for j in range(i+1, len(masks)):
         compare = masks[j]
-        if calculate_iou(cur["segmentation"], compare["segmentation"]) > 0.3:
+        if calculate_max_score(cur["segmentation"], compare["segmentation"]) > threshold:
             add = False
             break
     if add:
         final_masks.append(cur)
 
-sorted_mask = sorted(masks, key=lambda d: d['predicted_iou'], reverse = True) # Sort masks
+sorted_mask = sorted(final_masks, key=lambda d: d['predicted_iou'], reverse = True) # Sort masks
+# Filter sorted mask by area
+sorted_mask = [d for d in sorted_mask if d['area'] > 400]
 
-fig, ax = plt.subplots(2, 2)
+fig, ax = plt.subplots(3, 2)
 ax[0, 0].imshow(image)
 ax[0, 1].imshow(image)
 ax[1, 0].imshow(image)
 ax[1, 1].imshow(image)
+ax[2, 0].imshow(image)
+ax[2, 1].imshow(image)
 show_top_mask(sorted_mask, ax)
-fig.suptitle(f"Solar {number} top 4 segs", fontsize=16)
+fig.suptitle(f"Solar {number} top 8 segs", fontsize=8)
 plt.tight_layout()
 fig.subplots_adjust(top=0.93)
 plt.show()
@@ -133,33 +156,38 @@ plt.show()
 # %%Output all image segmentation results
 input_dir = "Data/CropSolar/"
 output_dir = "Outputs/Solar_Combined_Top4/"
-threshold = 0.3
-for number in range(1, N + 1):
+threshold = 0.6
+for number in range(272, N + 1):
     print(number)
     inputpath = wk_dir + input_dir + "Frame_" + f"{number:03}" + ".png"
     image = cv2.imread(inputpath)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     masks = mask_generator.generate(image)
+    # Sort by area first
+    masks = sorted(masks, key=lambda d: d['area'], reverse = True)
     final_masks = []
-    threshold = 0.3
     for i in range(len(masks)):
         cur = masks[i]
         add = True
         for j in range(i+1, len(masks)):
             compare = masks[j]
-            if calculate_iou(cur["segmentation"], compare["segmentation"]) > threshold:
+            if calculate_max_score(cur["segmentation"], compare["segmentation"]) > threshold:
                 add = False
                 break
         if add:
             final_masks.append(cur)
-    sorted_mask = sorted(masks, key=lambda d: d['predicted_iou'], reverse = True) # Sort masks
-    fig, ax = plt.subplots(2, 2)
+    sorted_mask = sorted(final_masks, key=lambda d: d['predicted_iou'], reverse = True) # Sort masks
+    # Filter sorted mask by area
+    sorted_mask = [d for d in sorted_mask if d['area'] > 400]
+    fig, ax = plt.subplots(3, 2)
     ax[0, 0].imshow(image)
     ax[0, 1].imshow(image)
     ax[1, 0].imshow(image)
     ax[1, 1].imshow(image)
+    ax[2, 0].imshow(image)
+    ax[2, 1].imshow(image)
     show_top_mask(sorted_mask, ax)
-    fig.suptitle(f"Solar {number} top 4 segs", fontsize=16)
+    fig.suptitle(f"Solar {number} top 8 segs", fontsize=8)
     plt.tight_layout()
     fig.subplots_adjust(top=0.93)
     fig.savefig(wk_dir + output_dir + "Frame_" + f"{number:03}" + ".png")
@@ -203,7 +231,7 @@ for i in range(len(masks)):
     add = True
     for j in range(i+1, len(masks)):
         compare = masks[j]
-        if calculate_iou(cur, compare) > threshold:
+        if calculate_max_score(cur, compare) > threshold:
             add = False
             break
     if add:
@@ -262,7 +290,7 @@ for number in range(1, N+1):
         add = True
         for j in range(i+1, len(masks)):
             compare = masks[j]
-            if calculate_iou(cur, compare) > threshold:
+            if calculate_max_score(cur, compare) > threshold:
                 add = False
                 break
         if add:

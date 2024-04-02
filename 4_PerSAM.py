@@ -20,21 +20,33 @@ device = "cuda:1" if torch.cuda.is_available() else "cpu"
 # %% Training free version of PerSAM
 processor = AutoProcessor.from_pretrained("facebook/sam-vit-huge") 
 model = SamModel.from_pretrained("facebook/sam-vit-huge")
-
+wk_dir = "/r/bb04na2a.unx.sas.com/vol/bigdisk/lax/hoyang/FineTune/"
+input_dir = "Labels/SolarPanel/"
 # Load reference images
-filename = hf_hub_download(repo_id="nielsr/persam-dog", filename="dog.jpg", repo_type="dataset") 
-ref_image = Image.open(filename).convert("RGB") 
+#filename = hf_hub_download(repo_id="nielsr/persam-dog", filename="dog.jpg", repo_type="dataset") 
+#ref_image = Image.open(filename).convert("RGB") 
+filename = wk_dir  + "Data/CropSolar/Frame_001.png"
+image = cv2.imread(filename)
+ref_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 #ref_image
 # Load reference mask
-filename = hf_hub_download(repo_id="nielsr/persam-dog", filename="dog_mask.png", repo_type="dataset") 
+#filename = hf_hub_download(repo_id="nielsr/persam-dog", filename="dog_mask.png", repo_type="dataset") 
+filename = wk_dir + "Labels/SolarPanel/Frame_001.txt"
+ref_mask = np.loadtxt(filename,delimiter=",", dtype=str)
+mask = []
+for i in range(len(ref_mask)):
+    mask = mask + ref_mask[i].split()
+mask = np.array([float(i) for i in mask])
+ref_mask = torch.tensor(mask.reshape((1, mask.shape[0])))
+gt_mask = ref_mask
 # Image.open(filename).convert("RGB") mask
 ref_mask = cv2.imread(filename) 
 ref_mask = cv2.cvtColor(ref_mask, cv2.COLOR_BGR2RGB) 
-gt_mask = torch.tensor(ref_mask)[:, :, 0] > 0 
-gt_mask = gt_mask.float().unsqueeze(0).flatten(1) 
+#gt_mask = torch.tensor(ref_mask)[:, :, 0] > 0 
+#gt_mask = gt_mask.float().unsqueeze(0).flatten(1) # torch.Size([1, 442216])
 # Look at the reference mask
-visual_mask = ref_mask.astype(np.uint8) 
-Image.fromarray(visual_mask)
+#visual_mask = ref_mask.astype(np.uint8) 
+#Image.fromarray(visual_mask)
 # %% Get target embedding
 model.to(device) # Step 1: Image features encoding 
 inputs = processor(images=ref_image, return_tensors="pt").to(device) 
