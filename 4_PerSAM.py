@@ -2,11 +2,14 @@
 #%% Packages
 import torch
 from PIL import Image
+
 import requests
 from transformers import SamModel, SamProcessor, SamImageProcessor, AutoProcessor
+
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
+
 from segment_anything import sam_model_registry
 from huggingface_hub import hf_hub_download 
 from PIL import Image 
@@ -20,12 +23,13 @@ device = "cuda:1" if torch.cuda.is_available() else "cpu"
 # %% Training free version of PerSAM
 processor = AutoProcessor.from_pretrained("facebook/sam-vit-huge") 
 model = SamModel.from_pretrained("facebook/sam-vit-huge")
-wk_dir = "/r/bb04na2a.unx.sas.com/vol/bigdisk/lax/hoyang/FineTune/"
+#wk_dir = "/r/bb04na2a.unx.sas.com/vol/bigdisk/lax/hoyang/FineTune/"
+wk_dir = "/Users/hongjianyang/SAS/FineTune/"
 input_dir = "Labels/SolarPanel/"
 # Load reference images
 #filename = hf_hub_download(repo_id="nielsr/persam-dog", filename="dog.jpg", repo_type="dataset") 
 #ref_image = Image.open(filename).convert("RGB") 
-filename = wk_dir  + "Data/CropSolar/Frame_001.png"
+filename = wk_dir  + "Data/SolarPanel/Frame_001.png"
 image = cv2.imread(filename)
 ref_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 #ref_image
@@ -37,16 +41,12 @@ mask = []
 for i in range(len(ref_mask)):
     mask = mask + ref_mask[i].split()
 mask = np.array([float(i) for i in mask])
-ref_mask = torch.tensor(mask.reshape((1, mask.shape[0])))
-gt_mask = ref_mask
-# Image.open(filename).convert("RGB") mask
-ref_mask = cv2.imread(filename) 
-ref_mask = cv2.cvtColor(ref_mask, cv2.COLOR_BGR2RGB) 
-#gt_mask = torch.tensor(ref_mask)[:, :, 0] > 0 
-#gt_mask = gt_mask.float().unsqueeze(0).flatten(1) # torch.Size([1, 442216])
-# Look at the reference mask
-#visual_mask = ref_mask.astype(np.uint8) 
-#Image.fromarray(visual_mask)
+temp = np.array(mask.reshape((ref_image.shape[0], ref_image.shape[1])))
+ref_mask = np.zeros((ref_image.shape[0], ref_image.shape[1], 3))
+ref_mask[:,:,0] = ref_mask[:,:,1] = ref_mask[:,:,2] = temp
+gt_mask = torch.tensor(ref_mask.astype(float))[:, :, 0] > 0 
+gt_mask = gt_mask.float().unsqueeze(0).flatten(1)
+
 # %% Get target embedding
 model.to(device) # Step 1: Image features encoding 
 inputs = processor(images=ref_image, return_tensors="pt").to(device) 
