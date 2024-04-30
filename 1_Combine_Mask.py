@@ -24,9 +24,6 @@ def show_mask(mask, score, ax, random_color=False):
     ax.imshow(mask_image)
     ax.set_title(f"{score:.3f}")
 
-    
-    
-
 def show_points(coords, labels, ax, marker_size=20):
     pos_points = coords[labels==1]
     neg_points = coords[labels==0]
