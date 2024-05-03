@@ -42,7 +42,8 @@ with torch.no_grad():
     # Forward run of reference image through SAM vision encoder
     image_embeddings = model.get_image_embeddings(pixel_values)
     ref_feat = image_embeddings.squeeze().permute(1, 2, 0)
-[256, 256, 3] - > [C, H, W]
+
+# [256, 256, 3] - > [C, H, W]
 def get_preprocess_shape(oldh: int, oldw: int, long_side_length: int) -> Tuple[int, int]: 
     """ Compute the output size given input size and target long side length. """ 
     scale = long_side_length * 1.0 / max(oldh, oldw) 
@@ -152,7 +153,8 @@ class Mask_Weights(nn.Module):
         super().__init__() 
         self.weights = nn.Parameter(torch.ones(2, 1, requires_grad=True) / 3) # Learnable mask weights 
 
-
+# Initialize three additional parameters in the last layer of the SAM model
+# The intuition is to select the best mask from three masks produced by SAM
 mask_weights = Mask_Weights() 
 mask_weights.to(device) 
 mask_weights.train()         
@@ -277,8 +279,7 @@ for i in range(1,N+1):
     final_outputs = model( input_points=inputs.input_points, input_labels=inputs.input_labels, input_boxes=input_boxes, 
                           input_masks=outputs_1.pred_masks.squeeze(1)[:,best_idx: best_idx + 1, :, :], 
                           image_embeddings=test_image_embeddings.unsqueeze(0), multimask_output=True)
-    #final_outputs.pred_masks.shape
-    #final_outputs.iou_scores
+
     best_idx = torch.argmax(final_outputs.iou_scores).item()
     masks = processor.image_processor.post_process_masks(final_outputs.pred_masks.cpu(), inputs["original_sizes"].cpu(), 
                                                          inputs["reshaped_input_sizes"].cpu())[0].squeeze().numpy()
